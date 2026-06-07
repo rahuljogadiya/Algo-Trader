@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AlgoTrader">
+<meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f5f0" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>AlgoTrader</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f5f0;
+  --bg2: #eeeee8;
+  --bg3: #e4e4dc;
+  --surface: #ffffff;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.14);
+  --text: #0a0a0a;
+  --text2: #555550;
+  --text3: #999990;
+  --green: #16a34a;
+  --green-bg: #dcfce7;
+  --red: #dc2626;
+  --red-bg: #fee2e2;
+  --amber: #d97706;
+  --amber-bg: #fef3c7;
+  --blue: #2563eb;
+  --blue-bg: #dbeafe;
+  --accent: #0a0a0a;
+  --accent-text: #f5f5f0;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --mono: 'DM Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #111110;
+    --bg3: #1a1a18;
+    --surface: #161614;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0eb;
+    --text2: #a0a09a;
+    --text3: #555550;
+    --green: #4ade80;
+    --green-bg: #052e16;
+    --red: #f87171;
+    --red-bg: #2d0a0a;
+    --amber: #fbbf24;
+    --amber-bg: #2d1a00;
+    --blue: #60a5fa;
+    --blue-bg: #0a1628;
+    --accent: #f0f0eb;
+    --accent-text: #0a0a0a;
+  }
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:var(--sans); }
+body { display:flex; flex-direction:column; }
+
+/* TOP BAR */
+.topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: env(safe-area-inset-top, 48px) 20px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink:0;
+}
+.app-title { font-size:18px; font-weight:800; letter-spacing:-0.5px; }
+.app-title span { color: var(--text3); font-weight:400; }
+.status-pill {
+  display:flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:11px;
+  padding:5px 10px; border-radius:999px;
+  border:1px solid var(--border2);
+  color:var(--text2);
+}
+.status-dot { width:7px; height:7px; border-radius:50%; background:var(--text3); }
+.status-dot.running { background:var(--green); box-shadow:0 0 6px var(--green); animation: pulse 2s infinite; }
+.status-dot.stopped { background:var(--red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* SCROLL AREA */
+.scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:16px 16px 100px; -webkit-overflow-scrolling:touch; }
+
+/* CARDS */
+.card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:16px; margin-bottom:12px;
+}
+.card-label { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:10px; }
+
+/* CONTROL CARD */
+.control-card { background:var(--accent); color:var(--accent-text); border-color:transparent; }
+.control-card .card-label { color: rgba(255,255,255,0.4); }
+@media (prefers-color-scheme: light) {
+  .control-card .card-label { color: rgba(0,0,0,0.35); }
+}
+.control-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.algo-name { font-size:20px; font-weight:700; letter-spacing:-0.5px; }
+.algo-sub { font-family:var(--mono); font-size:11px; opacity:0.5; margin-top:3px; }
+.btn-group { display:flex; gap:8px; flex-shrink:0; }
+.btn {
+  font-family:var(--sans); font-weight:600; font-size:13px;
+  padding:10px 18px; border-radius:var(--radius-sm);
+  border:none; cursor:pointer; transition: all 0.15s;
+}
+.btn:active { transform:scale(0.96); }
+.btn-start { background:var(--green); color:#fff; }
+.btn-stop { background:rgba(255,255,255,0.15); color:var(--accent-text); }
+@media (prefers-color-scheme: light) {
+  .btn-stop { background:rgba(0,0,0,0.12); color:var(--accent-text); }
+}
+.btn-stop:active { background:var(--red); color:#fff; }
+
+/* STATS GRID */
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; }
+.stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px; }
+.stat-label { font-family:var(--mono); font-size:10px; color:var(--text3); letter-spacing:0.06em; text-transform:uppercase; margin-bottom:6px; }
+.stat-value { font-family:var(--mono); font-size:22px; font-weight:500; letter-spacing:-0.5px; }
+.stat-value.pos { color:var(--green); }
+.stat-value.neg { color:var(--red); }
+.stat-sub { font-family:var(--mono); font-size:10px; color:var(--text3); margin-top:3px; }
+
+/* MARKET STATUS */
+.market-row { display:flex; align-items:center; justify-content:space-between; }
+.market-tag {
+  font-family:var(--mono); font-size:11px; font-weight:500;
+  padding:4px 10px; border-radius:999px;
+}
+.market-tag.bullish { background:var(--green-bg); color:var(--green); }
+.market-tag.bearish { background:var(--red-bg); color:var(--red); }
+.market-tag.neutral { background:var(--amber-bg); color:var(--amber); }
+.nifty-val { font-family:var(--mono); font-size:15px; font-weight:500; }
+.nifty-chg { font-family:var(--mono); font-size:12px; }
+.nifty-chg.pos { color:var(--green); }
+.nifty-chg.neg { color:var(--red); }
+
+/* SCANNER */
+.scanner-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 0; border-bottom:1px solid var(--border);
+}
+.scanner-row:last-child { border-bottom:none; padding-bottom:0; }
+.scanner-symbol { font-family:var(--mono); font-size:14px; font-weight:500; }
+.scanner-meta { font-family:var(--mono); font-size:11px; color:var(--text3); margin-top:2px; }
+.scanner-right { text-align:right; }
+.scanner-pct { font-family:var(--mono); font-size:14px; font-weight:500; }
+.scanner-pct.pos { color:var(--green); }
+.scanner-pct.neg { color:var(--red); }
+.badge {
+  display:inline-block; font-family:var(--mono); font-size:10px; font-weight:500;
+  padding:2px 7px; border-radius:999px; margin-top:3px;
+}
+.badge.ce { background:var(--green-bg); color:var(--green); }
+.badge.pe { background:var(--red-bg); color:var(--red); }
+.badge.watching { background:var(--bg3); color:var(--text3); }
+
+/* TRADE LOG */
+.trade-item { padding:12px 0; border-bottom:1px solid var(--border); }
+.trade-item:last-child { border-bottom:none; padding-bottom:0; }
+.trade-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:6px; }
+.trade-symbol { font-family:var(--mono); font-size:14px; font-weight:500; }
+.trade-time { font-family:var(--mono); font-size:10px; color:var(--text3); }
+.trade-pnl { font-family:var(--mono); font-size:15px; font-weight:500; }
+.trade-pnl.pos { color:var(--green); }
+.trade-pnl.neg { color:var(--red); }
+.trade-reason { font-family:var(--mono); font-size:11px; color:var(--text2); line-height:1.5; }
+.trade-tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
+.tag {
+  font-family:var(--mono); font-size:10px; padding:2px 7px;
+  border-radius:999px; border:1px solid var(--border2); color:var(--text3);
+}
+
+/* BOTTOM NAV */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0;
+  display:flex;
+  background:var(--bg);
+  border-top:1px solid var(--border);
+  padding-bottom:env(safe-area-inset-bottom, 16px);
+  z-index:100;
+}
+.nav-item {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  gap:3px; padding:10px 0;
+  font-family:var(--mono); font-size:9px; letter-spacing:0.05em;
+  color:var(--text3); cursor:pointer; transition:color 0.15s;
+  text-transform:uppercase;
+}
+.nav-item.active { color:var(--text); }
+.nav-icon { font-size:20px; line-height:1; }
+
+/* SECTIONS */
+.section { display:none; }
+.section.active { display:block; }
+
+/* EMPTY STATE */
+.empty { text-align:center; padding:32px 16px; color:var(--text3); font-family:var(--mono); font-size:12px; }
+.empty-icon { font-size:32px; margin-bottom:8px; }
+
+/* SETTINGS */
+.setting-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 0; border-bottom:1px solid var(--border);
+}
+.setting-row:last-child { border-bottom:none; }
+.setting-label { font-size:14px; font-weight:500; }
+.setting-sub { font-family:var(--mono); font-size:11px; color:var(--text3); margin-top:2px; }
+.setting-val { font-family:var(--mono); font-size:13px; color:var(--text2); }
+input[type=text], input[type=number] {
+  font-family:var(--mono); font-size:13px;
+  background:var(--bg2); border:1px solid var(--border2);
+  color:var(--text); border-radius:8px; padding:6px 10px;
+  width:90px; text-align:right; outline:none;
+}
+input:focus { border-color:var(--blue); }
+
+/* TOGGLE */
+.toggle { position:relative; width:44px; height:26px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider {
+  position:absolute; inset:0; border-radius:999px;
+  background:var(--bg3); transition:0.2s; cursor:pointer;
+}
+.toggle-slider:before {
+  content:''; position:absolute; width:20px; height:20px;
+  border-radius:50%; background:#fff; top:3px; left:3px; transition:0.2s;
+}
+.toggle input:checked + .toggle-slider { background:var(--green); }
+.toggle input:checked + .toggle-slider:before { transform:translateX(18px); }
+
+/* CHART BAR */
+.pnl-bar-wrap { display:flex; align-items:flex-end; gap:4px; height:60px; margin-top:8px; }
+.pnl-bar { flex:1; border-radius:4px 4px 0 0; transition:height 0.3s; min-height:4px; position:relative; }
+.pnl-bar.pos { background:var(--green); opacity:0.7; }
+.pnl-bar.neg { background:var(--red); opacity:0.7; align-self:flex-start; border-radius:0 0 4px 4px; }
+
+.run-log { font-family:var(--mono); font-size:11px; color:var(--text2); line-height:1.8; }
+.run-log .ts { color:var(--text3); margin-right:8px; }
+.run-log .ok { color:var(--green); }
+.run-log .err { color:var(--red); }
+.run-log .info { color:var(--blue); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="app-title">Algo<span>Trader</span></div>
+  <div class="status-pill">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">IDLE</span>
+  </div>
+</div>
+
+<div class="scroll" id="mainScroll">
+
+  <!-- DASHBOARD -->
+  <div class="section active" id="sec-dashboard">
+
+    <div class="card control-card">
+      <div class="card-label">Strategy</div>
+      <div class="control-row">
+        <div>
+          <div class="algo-name">Top G/L F&O</div>
+          <div class="algo-sub">ATM · Weekly · 9:30 scan</div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-start" id="btnStart" onclick="startAlgo()">Start</button>
+          <button class="btn btn-stop" id="btnStop" onclick="stopAlgo()" style="display:none">Stop</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Today P&L</div>
+        <div class="stat-value pos" id="todayPnl">+₹0</div>
+        <div class="stat-sub" id="todayTrades">0 trades</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total P&L</div>
+        <div class="stat-value pos" id="totalPnl">+₹0</div>
+        <div class="stat-sub" id="winRate">0% win rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open Positions</div>
+        <div class="stat-value" id="openPos">0</div>
+        <div class="stat-sub">paper trades</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Market</div>
+        <div style="margin-top:4px">
+          <span class="market-tag neutral" id="marketTag">NEUTRAL</span>
+        </div>
+        <div class="stat-sub" id="niftyInfo">Nifty —</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Weekly P&L</div>
+      <div class="pnl-bar-wrap" id="pnlBars">
+        <div class="pnl-bar pos" style="height:30%"></div>
+        <div class="pnl-bar neg" style="height:20%"></div>
+        <div class="pnl-bar pos" style="height:55%"></div>
+        <div class="pnl-bar neg" style="height:15%"></div>
+        <div class="pnl-bar pos" style="height:40%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Mon</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Tue</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Wed</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Thu</span>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">Fri</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Run Log</div>
+      <div class="run-log" id="runLog">
+        <div><span class="ts">--:--:--</span><span>Waiting to start...</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- SCANNER -->
+  <div class="section" id="sec-scanner">
+    <div class="card">
+      <div class="card-label">Top F&O Gainers</div>
+      <div id="gainers-list">
+        <div class="empty"><div class="empty-icon">📡</div>Start algo to scan</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Top F&O Losers</div>
+      <div id="losers-list">
+        <div class="empty"><div class="empty-icon">📡</div>Start algo to scan</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRADES -->
+  <div class="section" id="sec-trades">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Best Trade</div>
+        <div class="stat-value pos" id="bestTrade">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Worst Trade</div>
+        <div class="stat-value neg" id="worstTrade">—</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-label">Trade History</div>
+      <div id="trade-list">
+        <div class="empty"><div class="empty-icon">📋</div>No trades yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="section" id="sec-settings">
+    <div class="card">
+      <div class="card-label">Strategy Parameters</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Min % Move</div>
+          <div class="setting-sub">Stock must move this much</div>
+        </div>
+        <input type="number" id="minMove" value="2" step="0.5">
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Max Positions</div>
+          <div class="setting-sub">Top N stocks to trade</div>
+        </div>
+        <input type="number" id="maxPos" value="3" step="1">
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Stop Loss %</div>
+          <div class="setting-sub">Exit if premium drops</div>
+        </div>
+        <input type="number" id="slPct" value="10" step="5">
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Target ₹</div>
+          <div class="setting-sub">Exit on profit (rupees)</div>
+        </div>
+        <input type="number" id="target" value="2500" step="500">
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Scan Time</div>
+          <div class="setting-sub">Daily scan at</div>
+        </div>
+        <div class="setting-val">09:30 AM</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Strike</div>
+          <div class="setting-sub">Which strike to buy</div>
+        </div>
+        <div class="setting-val">ATM</div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Expiry</div>
+          <div class="setting-sub">Which expiry to use</div>
+        </div>
+        <div class="setting-val">Current week</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Notifications</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Trade Entry Alert</div>
+          <div class="setting-sub">Notify when order placed</div>
+        </div>
+        <label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">SL Hit Alert</div>
+          <div class="setting-sub">Notify on stop loss</div>
+        </div>
+        <label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Target Hit Alert</div>
+          <div class="setting-sub">Notify on profit target</div>
+        </div>
+        <label class="toggle"><input type="checkbox" checked><div class="toggle-slider"></div></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Backend API</div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Server URL</div>
+          <div class="setting-sub">Your FastAPI server</div>
+        </div>
+        <input type="text" id="serverUrl" value="localhost" style="width:110px">
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Mode</div>
+          <div class="setting-sub">Paper or Live</div>
+        </div>
+        <div class="setting-val" style="color:var(--amber)">PAPER</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <div class="nav-item active" onclick="switchTab('dashboard', this)">
+    <div class="nav-icon">⬡</div>
+    <span>Dashboard</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('scanner', this)">
+    <div class="nav-icon">◎</div>
+    <span>Scanner</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('trades', this)">
+    <div class="nav-icon">≡</div>
+    <span>Trades</span>
+  </div>
+  <div class="nav-item" onclick="switchTab('settings', this)">
+    <div class="nav-icon">⚙</div>
+    <span>Settings</span>
+  </div>
+</nav>
+
+<script>
+// ── State ──
+let algoRunning = false;
+let scanInterval = null;
+let trades = [];
+let todayPnl = 0;
+let totalPnl = 0;
+
+// Mock F&O stocks for demo
+const FO_STOCKS = [
+  'RELIANCE','TCS','INFY','HDFCBANK','ICICIBANK','AXISBANK','SBIN',
+  'TATASTEEL','TATAMOTORS','BAJFINANCE','WIPRO','LTIM','HCLTECH',
+  'ADANIENT','MARUTI','SUNPHARMA','DRREDDY','DIVISLAB','TITAN',
+  'ULTRACEMCO','ASIANPAINT','NESTLEIND','HINDUNILVR','ONGC','COALINDIA'
+];
+
+// ── Tab switching ──
+function switchTab(name, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('mainScroll').scrollTop = 0;
+}
+
+// ── Algo control ──
+function startAlgo() {
+  algoRunning = true;
+  document.getElementById('btnStart').style.display = 'none';
+  document.getElementById('btnStop').style.display = 'block';
+  document.getElementById('statusDot').className = 'status-dot running';
+  document.getElementById('statusText').textContent = 'RUNNING';
+  addLog('info', 'Algo started — paper trading mode');
+  addLog('ok', 'Connecting to market data...');
+  setTimeout(() => {
+    addLog('ok', 'Market data connected');
+    runScan();
+  }, 1200);
+  scanInterval = setInterval(runScan, 30000);
+}
+
+function stopAlgo() {
+  algoRunning = false;
+  clearInterval(scanInterval);
+  document.getElementById('btnStart').style.display = 'block';
+  document.getElementById('btnStop').style.display = 'none';
+  document.getElementById('statusDot').className = 'status-dot stopped';
+  document.getElementById('statusText').textContent = 'STOPPED';
+  addLog('err', 'Algo stopped by user');
+}
+
+// ── Log ──
+function addLog(type, msg) {
+  const now = new Date();
+  const ts = now.toTimeString().slice(0,8);
+  const el = document.getElementById('runLog');
+  const div = document.createElement('div');
+  div.innerHTML = `<span class="ts">${ts}</span><span class="${type}">${msg}</span>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  if (el.children.length > 20) el.removeChild(el.children[0]);
+}
+
+// ── Mock scan ──
+function runScan() {
+  if (!algoRunning) return;
+
+  // Simulate Nifty direction
+  const niftyChg = (Math.random() * 2 - 0.8).toFixed(2);
+  const bullish = parseFloat(niftyChg) > 0;
+  const niftyVal = (24350 + Math.random() * 200 - 100).toFixed(0);
+
+  document.getElementById('niftyInfo').textContent = `Nifty ${niftyVal}`;
+  const tag = document.getElementById('marketTag');
+  if (Math.abs(niftyChg) < 0.2) {
+    tag.textContent = 'NEUTRAL'; tag.className = 'market-tag neutral';
+  } else if (bullish) {
+    tag.textContent = 'BULLISH'; tag.className = 'market-tag bullish';
+  } else {
+    tag.textContent = 'BEARISH'; tag.className = 'market-tag bearish';
+  }
+
+  addLog('info', `Nifty: ${niftyVal} (${niftyChg > 0 ? '+' : ''}${niftyChg}%) → ${bullish ? 'BULLISH' : 'BEARISH'}`);
+
+  // Generate mock stock data
+  const stocks = FO_STOCKS.map(s => ({
+    symbol: s,
+    pct: parseFloat((Math.random() * 6 - 3).toFixed(2)),
+    ltp: (Math.random() * 3000 + 200).toFixed(1)
+  }));
+
+  const gainers = stocks.filter(s => s.pct > 0).sort((a,b) => b.pct - a.pct).slice(0,5);
+  const losers  = stocks.filter(s => s.pct < 0).sort((a,b) => a.pct - b.pct).slice(0,5);
+
+  renderScanner(gainers, losers, bullish);
+
+  // Pick top 3 based on direction
+  const minMove = parseFloat(document.getElementById('minMove').value) || 2;
+  const maxPos  = parseInt(document.getElementById('maxPos').value) || 3;
+  const picks   = bullish
+    ? gainers.filter(s => s.pct >= minMove).slice(0, maxPos)
+    : losers.filter(s => Math.abs(s.pct) >= minMove).slice(0, maxPos);
+
+  if (picks.length > 0) {
+    addLog('ok', `Found ${picks.length} stock(s) matching criteria`);
+    picks.forEach(p => simulateTrade(p, bullish));
+  } else {
+    addLog('info', `No stocks moved ${minMove}%+ — skipping`);
+  }
+}
+
+// ── Render scanner ──
+function renderScanner(gainers, losers, bullish) {
+  const gl = document.getElementById('gainers-list');
+  const ll = document.getElementById('losers-list');
+  const minMove = parseFloat(document.getElementById('minMove').value) || 2;
+
+  gl.innerHTML = gainers.map(s => `
+    <div class="scanner-row">
+      <div>
+        <div class="scanner-symbol">${s.symbol}</div>
+        <div class="scanner-meta">LTP ₹${s.ltp}</div>
+      </div>
+      <div class="scanner-right">
+        <div class="scanner-pct pos">+${s.pct}%</div>
+        <div>${s.pct >= minMove && bullish ? '<span class="badge ce">CE BUY</span>' : '<span class="badge watching">watching</span>'}</div>
+      </div>
+    </div>`).join('');
+
+  ll.innerHTML = losers.map(s => `
+    <div class="scanner-row">
+      <div>
+        <div class="scanner-symbol">${s.symbol}</div>
+        <div class="scanner-meta">LTP ₹${s.ltp}</div>
+      </div>
+      <div class="scanner-right">
+        <div class="scanner-pct neg">${s.pct}%</div>
+        <div>${Math.abs(s.pct) >= minMove && !bullish ? '<span class="badge pe">PE BUY</span>' : '<span class="badge watching">watching</span>'}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Simulate trade ──
+function simulateTrade(stock, bullish) {
+  const type     = bullish ? 'CE' : 'PE';
+  const entry    = parseFloat((Math.random() * 80 + 40).toFixed(1));
+  const slPct    = parseFloat(document.getElementById('slPct').value) || 10;
+  const targetRs = parseFloat(document.getElementById('target').value) || 2500;
+  const lotSize  = 250;
+  const won      = Math.random() > 0.45;
+  const exitPct  = won
+    ? (Math.random() * 60 + 20)
+    : -(slPct + Math.random() * 5);
+  const exit     = parseFloat((entry * (1 + exitPct / 100)).toFixed(1));
+  const pnl      = Math.round((exit - entry) * lotSize);
+  const reason   = won ? 'TARGET HIT' : 'SL HIT';
+
+  const trade = {
+    symbol: stock.symbol,
+    type,
+    entry,
+    exit,
+    pnl,
+    reason,
+    entryReason: `${stock.symbol} moved ${stock.pct > 0 ? '+' : ''}${stock.pct}%, Nifty ${bullish ? 'bullish' : 'bearish'}`,
+    time: new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}),
+    strike: `ATM ${type}`
+  };
+
+  trades.unshift(trade);
+  todayPnl += pnl;
+  totalPnl += pnl;
+
+  addLog(pnl > 0 ? 'ok' : 'err',
+    `${stock.symbol} ${type} → ${reason} | P&L: ${pnl > 0 ? '+' : ''}₹${pnl.toLocaleString('en-IN')}`);
+
+  updateStats();
+  renderTrades();
+}
+
+// ── Update stats ──
+function updateStats() {
+  const pnlEl = document.getElementById('todayPnl');
+  pnlEl.textContent = `${todayPnl >= 0 ? '+' : ''}₹${Math.abs(todayPnl).toLocaleString('en-IN')}`;
+  pnlEl.className = 'stat-value ' + (todayPnl >= 0 ? 'pos' : 'neg');
+
+  const tpEl = document.getElementById('totalPnl');
+  tpEl.textContent = `${totalPnl >= 0 ? '+' : ''}₹${Math.abs(totalPnl).toLocaleString('en-IN')}`;
+  tpEl.className = 'stat-value ' + (totalPnl >= 0 ? 'pos' : 'neg');
+
+  document.getElementById('todayTrades').textContent = `${trades.length} trade${trades.length !== 1 ? 's' : ''}`;
+
+  const wins = trades.filter(t => t.pnl > 0).length;
+  const wr   = trades.length > 0 ? Math.round(wins / trades.length * 100) : 0;
+  document.getElementById('winRate').textContent = `${wr}% win rate`;
+  document.getElementById('openPos').textContent = '0';
+
+  if (trades.length > 0) {
+    const best  = Math.max(...trades.map(t => t.pnl));
+    const worst = Math.min(...trades.map(t => t.pnl));
+    document.getElementById('bestTrade').textContent  = `+₹${best.toLocaleString('en-IN')}`;
+    document.getElementById('worstTrade').textContent = `-₹${Math.abs(worst).toLocaleString('en-IN')}`;
+  }
+}
+
+// ── Render trades ──
+function renderTrades() {
+  const el = document.getElementById('trade-list');
+  if (trades.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>No trades yet</div>';
+    return;
+  }
+  el.innerHTML = trades.slice(0, 30).map(t => `
+    <div class="trade-item">
+      <div class="trade-top">
+        <div>
+          <div class="trade-symbol">${t.symbol} <span style="font-size:11px;color:var(--text3)">${t.strike}</span></div>
+          <div class="trade-time">${t.time}</div>
+        </div>
+        <div class="trade-pnl ${t.pnl >= 0 ? 'pos' : 'neg'}">${t.pnl >= 0 ? '+' : ''}₹${Math.abs(t.pnl).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="trade-reason">Entry: ${t.entryReason}</div>
+      <div class="trade-tags">
+        <span class="tag">${t.type}</span>
+        <span class="tag">Entry ₹${t.entry}</span>
+        <span class="tag">Exit ₹${t.exit}</span>
+        <span class="tag" style="color:${t.reason === 'TARGET HIT' ? 'var(--green)' : 'var(--red)'}">${t.reason}</span>
+      </div>
+    </div>`).join('');
+}
+</script>
+</body>
+</html>

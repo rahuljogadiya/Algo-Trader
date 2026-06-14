@@ -1,0 +1,3 @@
+timestamp,trade_id,underlying,direction,option_symbol,option_type,strike,expiry,entry_time,exit_time,entry_premium,exit_premium,pnl,exit_reason
+2026-06-14T12:45:24.544674,97a4570a-6868-4e7a-8661-848095551e6f,RELIANCE,CALL,RELIANCE,CE,1050.0,2026-06-18T15:30:00+05:30,2026-06-14T13:00:00+05:30,2026-06-14T13:15:00+05:30,65.0,55.0,-10.0,trailing
+2026-06-14T14:23:26.777434,69bde759-c3db-4b46-a8b8-4d2383424ee1,RELIANCE,CALL,RELIANCE,CE,1050.0,2026-06-18T15:30:00+05:30,2026-06-14T13:00:00+05:30,2026-06-14T13:15:00+05:30,65.0,55.0,-10.0,trailing

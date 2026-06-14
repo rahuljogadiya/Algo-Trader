@@ -1,0 +1,27 @@
+[project]
+name = "algo-trading-nsefo"
+version = "0.1.0"
+description = "Automated NSE F&O intraday strategy (Top Gainers/Losers + ATM options) with live Zerodha Kite integration and backtesting."
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.2.0",
+  "numpy>=1.26.0",
+  "requests>=2.32.0",
+  "python-dateutil>=2.9.0",
+  "tenacity>=8.2.3",
+  "pytz>=2024.1",
+  "scipy>=1.12.0",
+  "pyyaml>=6.0.1",
+  "kiteconnect>=5.0.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "AlgoTradingNSEFO/src"}
+
+[tool.setuptools.packages.find]
+where = ["AlgoTradingNSEFO/src"]
+include = ["core*", "data*", "strategy*", "broker*", "backtest*", "utils*", "src*"]
+
+[build-system]
+requires = ["setuptools>=69.0.0"]
+build-backend = "setuptools.build_meta"

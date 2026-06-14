@@ -1,0 +1,29 @@
+strategy:
+  account_capital: 1000000
+  top_gainers_losers_limit: 10
+  min_option_volume: 1000
+  min_option_open_interest: 1000
+  move_pct_from_open: 0.02
+  ema_fast: 20
+  ema_slow: 50
+  rsi_length: 14
+  rsi_call_threshold: 60
+  rsi_put_threshold: 40
+  stop_loss_pct_premium_loss: 0.20
+  target_pct_premium_gain: 0.40
+  trailing_stop_loss_pct: 0.10
+  max_risk_per_trade_pct_capital: 0.01
+  avoid_first_minutes: 15
+  no_new_trades_after_time: "14:45"
+  square_off_time: "15:20"
+
+broker:
+  mode: "live-ready" # "live-ready" or "mock"
+  api_key: ""
+  access_token: ""
+  order_variety: "regular"
+
+backtest:
+  historical_data_path: "AlgoTradingNSEFO/data/sample_backtest_data.csv"
+  initial_capital: 1000000
+  tz: "Asia/Kolkata"

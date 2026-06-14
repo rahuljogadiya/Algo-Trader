@@ -273,7 +273,8 @@ input:focus { border-color:var(--blue); }
           <div class="algo-sub">ATM · Weekly · 9:30 scan</div>
         </div>
         <div class="btn-group">
-          <button class="btn btn-start" id="btnStart" onclick="startAlgo()">Start</button>
+          <button class="btn btn-start" id="btnStartPaper" onclick="startPaper()">Start Paper</button>
+          <button class="btn btn-start" id="btnStartBacktest" onclick="startBacktest()">Start Backtest</button>
           <button class="btn btn-stop" id="btnStop" onclick="stopAlgo()" style="display:none">Stop</button>
         </div>
       </div>
@@ -496,14 +497,6 @@ let trades = [];
 let todayPnl = 0;
 let totalPnl = 0;
 
-// Mock F&O stocks for demo
-const FO_STOCKS = [
-  'RELIANCE','TCS','INFY','HDFCBANK','ICICIBANK','AXISBANK','SBIN',
-  'TATASTEEL','TATAMOTORS','BAJFINANCE','WIPRO','LTIM','HCLTECH',
-  'ADANIENT','MARUTI','SUNPHARMA','DRREDDY','DIVISLAB','TITAN',
-  'ULTRACEMCO','ASIANPAINT','NESTLEIND','HINDUNILVR','ONGC','COALINDIA'
-];
-
 // ── Tab switching ──
 function switchTab(name, el) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -514,29 +507,80 @@ function switchTab(name, el) {
 }
 
 // ── Algo control ──
-function startAlgo() {
-  algoRunning = true;
-  document.getElementById('btnStart').style.display = 'none';
-  document.getElementById('btnStop').style.display = 'block';
-  document.getElementById('statusDot').className = 'status-dot running';
-  document.getElementById('statusText').textContent = 'RUNNING';
-  addLog('info', 'Algo started — paper trading mode');
-  addLog('ok', 'Connecting to market data...');
-  setTimeout(() => {
-    addLog('ok', 'Market data connected');
-    runScan();
-  }, 1200);
-  scanInterval = setInterval(runScan, 30000);
+async function _apiPost(path, body) {
+  const base = document.getElementById('serverUrl').value.trim() || 'localhost';
+  const url = `http://${base}:8000${path}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`API ${path} failed: ${res.status} ${txt}`);
+  }
+  return res.json();
 }
 
-function stopAlgo() {
-  algoRunning = false;
-  clearInterval(scanInterval);
-  document.getElementById('btnStart').style.display = 'block';
-  document.getElementById('btnStop').style.display = 'none';
-  document.getElementById('statusDot').className = 'status-dot stopped';
-  document.getElementById('statusText').textContent = 'STOPPED';
-  addLog('err', 'Algo stopped by user');
+async function _apiGet(path) {
+  const base = document.getElementById('serverUrl').value.trim() || 'localhost';
+  const url = `http://${base}:8000${path}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`API GET ${path} failed: ${res.status} ${txt}`);
+  }
+  return res.json();
+}
+
+async function _setRunning(running, statusText) {
+  algoRunning = running;
+  document.getElementById('btnStop').style.display = running ? 'block' : 'none';
+  document.getElementById('btnStartPaper').disabled = running;
+  document.getElementById('btnStartBacktest').disabled = running;
+
+  document.getElementById('statusDot').className = running ? 'status-dot running' : 'status-dot stopped';
+  document.getElementById('statusText').textContent = statusText || (running ? 'RUNNING' : 'STOPPED');
+}
+
+async function startPaper() {
+  try {
+    await _setRunning(true, 'PAPER RUNNING');
+    addLog('info', 'Starting paper trading (backend)…');
+    await _apiPost('/api/start', { mode: 'paper' });
+    addLog('ok', 'Paper trading started.');
+    startPolling();
+  } catch (e) {
+    console.error(e);
+    addLog('err', String(e));
+    await _setRunning(false, 'STOPPED');
+  }
+}
+
+async function startBacktest() {
+  try {
+    await _setRunning(true, 'BACKTEST RUNNING');
+    addLog('info', 'Starting backtest (backend)…');
+    await _apiPost('/api/start', { mode: 'backtest' });
+    addLog('ok', 'Backtest started.');
+    startPolling();
+  } catch (e) {
+    console.error(e);
+    addLog('err', String(e));
+    await _setRunning(false, 'STOPPED');
+  }
+}
+
+async function stopAlgo() {
+  try {
+    await _apiPost('/api/stop', {});
+    addLog('err', 'Stop requested.');
+  } catch (e) {
+    addLog('err', `Stop error: ${String(e)}`);
+  } finally {
+    stopPolling();
+    await _setRunning(false, 'STOPPED');
+  }
 }
 
 // ── Log ──
@@ -551,122 +595,63 @@ function addLog(type, msg) {
   if (el.children.length > 20) el.removeChild(el.children[0]);
 }
 
-// ── Mock scan ──
-function runScan() {
-  if (!algoRunning) return;
+let pollInterval = null;
 
-  // Simulate Nifty direction
-  const niftyChg = (Math.random() * 2 - 0.8).toFixed(2);
-  const bullish = parseFloat(niftyChg) > 0;
-  const niftyVal = (24350 + Math.random() * 200 - 100).toFixed(0);
+function startPolling() {
+  if (pollInterval) return;
+  pollInterval = setInterval(async () => {
+    if (!algoRunning) return;
 
-  document.getElementById('niftyInfo').textContent = `Nifty ${niftyVal}`;
-  const tag = document.getElementById('marketTag');
-  if (Math.abs(niftyChg) < 0.2) {
-    tag.textContent = 'NEUTRAL'; tag.className = 'market-tag neutral';
-  } else if (bullish) {
-    tag.textContent = 'BULLISH'; tag.className = 'market-tag bullish';
-  } else {
-    tag.textContent = 'BEARISH'; tag.className = 'market-tag bearish';
-  }
+    try {
+      const status = await _apiGet('/api/status');
+      if (!status.running && status.mode) {
+        addLog('info', `Run finished: ${status.mode}`);
+        await _setRunning(false, 'STOPPED');
+        stopPolling();
+        return;
+      }
 
-  addLog('info', `Nifty: ${niftyVal} (${niftyChg > 0 ? '+' : ''}${niftyChg}%) → ${bullish ? 'BULLISH' : 'BEARISH'}`);
-
-  // Generate mock stock data
-  const stocks = FO_STOCKS.map(s => ({
-    symbol: s,
-    pct: parseFloat((Math.random() * 6 - 3).toFixed(2)),
-    ltp: (Math.random() * 3000 + 200).toFixed(1)
-  }));
-
-  const gainers = stocks.filter(s => s.pct > 0).sort((a,b) => b.pct - a.pct).slice(0,5);
-  const losers  = stocks.filter(s => s.pct < 0).sort((a,b) => a.pct - b.pct).slice(0,5);
-
-  renderScanner(gainers, losers, bullish);
-
-  // Pick top 3 based on direction
-  const minMove = parseFloat(document.getElementById('minMove').value) || 2;
-  const maxPos  = parseInt(document.getElementById('maxPos').value) || 3;
-  const picks   = bullish
-    ? gainers.filter(s => s.pct >= minMove).slice(0, maxPos)
-    : losers.filter(s => Math.abs(s.pct) >= minMove).slice(0, maxPos);
-
-  if (picks.length > 0) {
-    addLog('ok', `Found ${picks.length} stock(s) matching criteria`);
-    picks.forEach(p => simulateTrade(p, bullish));
-  } else {
-    addLog('info', `No stocks moved ${minMove}%+ — skipping`);
-  }
+      const t = await _apiGet('/api/trades?limit=50');
+      renderTradesFromBackend(t);
+    } catch (e) {
+      console.error(e);
+      addLog('err', `Polling error: ${String(e)}`);
+      // keep polling; transient network issues
+    }
+  }, 2000);
 }
 
-// ── Render scanner ──
-function renderScanner(gainers, losers, bullish) {
-  const gl = document.getElementById('gainers-list');
-  const ll = document.getElementById('losers-list');
-  const minMove = parseFloat(document.getElementById('minMove').value) || 2;
-
-  gl.innerHTML = gainers.map(s => `
-    <div class="scanner-row">
-      <div>
-        <div class="scanner-symbol">${s.symbol}</div>
-        <div class="scanner-meta">LTP ₹${s.ltp}</div>
-      </div>
-      <div class="scanner-right">
-        <div class="scanner-pct pos">+${s.pct}%</div>
-        <div>${s.pct >= minMove && bullish ? '<span class="badge ce">CE BUY</span>' : '<span class="badge watching">watching</span>'}</div>
-      </div>
-    </div>`).join('');
-
-  ll.innerHTML = losers.map(s => `
-    <div class="scanner-row">
-      <div>
-        <div class="scanner-symbol">${s.symbol}</div>
-        <div class="scanner-meta">LTP ₹${s.ltp}</div>
-      </div>
-      <div class="scanner-right">
-        <div class="scanner-pct neg">${s.pct}%</div>
-        <div>${Math.abs(s.pct) >= minMove && !bullish ? '<span class="badge pe">PE BUY</span>' : '<span class="badge watching">watching</span>'}</div>
-      </div>
-    </div>`).join('');
+function stopPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = null;
 }
 
-// ── Simulate trade ──
-function simulateTrade(stock, bullish) {
-  const type     = bullish ? 'CE' : 'PE';
-  const entry    = parseFloat((Math.random() * 80 + 40).toFixed(1));
-  const slPct    = parseFloat(document.getElementById('slPct').value) || 10;
-  const targetRs = parseFloat(document.getElementById('target').value) || 2500;
-  const lotSize  = 250;
-  const won      = Math.random() > 0.45;
-  const exitPct  = won
-    ? (Math.random() * 60 + 20)
-    : -(slPct + Math.random() * 5);
-  const exit     = parseFloat((entry * (1 + exitPct / 100)).toFixed(1));
-  const pnl      = Math.round((exit - entry) * lotSize);
-  const reason   = won ? 'TARGET HIT' : 'SL HIT';
+function renderTradesFromBackend(tradeRows) {
+  trades = tradeRows.map(r => {
+    const pnl = parseFloat(r.pnl ?? '0');
+    return {
+      symbol: r.underlying ?? '—',
+      type: (r.direction === 'CALL' || r.direction === 'PUT') ? (r.direction === 'CALL' ? 'CE' : 'PE') : (r.option_type || '—'),
+      entry: parseFloat(r.entry_premium ?? '0'),
+      exit: parseFloat(r.exit_premium ?? '0'),
+      pnl: Math.round((pnl || 0)),
+      reason: r.exit_reason || '—',
+      entryReason: `${r.option_symbol || ''} ${r.strike || ''} ${r.option_type || ''}`.trim(),
+      time: r.exit_time ? new Date(r.exit_time).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}) : '—',
+      strike: `ATM ${r.strike || ''}`,
+      _raw: r,
+    };
+  });
 
-  const trade = {
-    symbol: stock.symbol,
-    type,
-    entry,
-    exit,
-    pnl,
-    reason,
-    entryReason: `${stock.symbol} moved ${stock.pct > 0 ? '+' : ''}${stock.pct}%, Nifty ${bullish ? 'bullish' : 'bearish'}`,
-    time: new Date().toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'}),
-    strike: `ATM ${type}`
-  };
-
-  trades.unshift(trade);
-  todayPnl += pnl;
-  totalPnl += pnl;
-
-  addLog(pnl > 0 ? 'ok' : 'err',
-    `${stock.symbol} ${type} → ${reason} | P&L: ${pnl > 0 ? '+' : ''}₹${pnl.toLocaleString('en-IN')}`);
+  todayPnl = trades.reduce((a, t) => a + (t.pnl || 0), 0);
+  totalPnl = todayPnl; // simplified; CSV is all-time for now
 
   updateStats();
   renderTrades();
 }
+
+// Backend-driven trades: no local simulateTrade()
+
 
 // ── Update stats ──
 function updateStats() {
